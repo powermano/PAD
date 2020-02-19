@@ -12,9 +12,21 @@ def get_train_loader(conf):
     loader = DataLoader(ds, batch_size=conf.batch_size, shuffle=True, pin_memory=conf.pin_memory, num_workers=conf.num_workers)
     return loader
 
+def get_train_loader_rgb(conf):
+    print('train dataset: {}'.format(conf.train_list))
+    ds = MyDataset_huoti_rgb(conf)
+    loader = DataLoader(ds, batch_size=conf.batch_size, shuffle=True, pin_memory=conf.pin_memory, num_workers=conf.num_workers)
+    return loader
+
 def get_test_loader(conf):
     print('test dataset: {}'.format(conf.test_list))
     ds = MyDataset_huoti_test(conf)
+    loader = DataLoader(ds, batch_size=conf.batch_size, shuffle=False, pin_memory=conf.pin_memory, num_workers=conf.num_workers)
+    return loader
+
+def get_test_loader_rgb(conf):
+    print('test dataset: {}'.format(conf.test_list))
+    ds = MyDataset_huoti_test_rgb(conf)
     loader = DataLoader(ds, batch_size=conf.batch_size, shuffle=False, pin_memory=conf.pin_memory, num_workers=conf.num_workers)
     return loader
 
@@ -35,7 +47,7 @@ class MyDataset_huoti(Dataset):
             line = line.rstrip()
             words = line.split()
             imgs.append((words[0], words[1], words[2], int(words[3])))
-
+                
         self.imgs = imgs
         self.transform = conf.train.transform
         self.target_transform = target_transform
@@ -115,6 +127,77 @@ class MyDataset_huoti_test(Dataset):
             img22 = self.transform(img22)
             img23 = self.transform(img23)
         return [img11,img12,img13,img21,img22,img23], [fn1, fn2, fn3]
+
+    def __len__(self):
+        return len(self.imgs)
+
+
+class MyDataset_huoti_rgb(Dataset):
+    def __init__(self, conf, target_transform=None, loader_rgb=default_loader_rgb, loader_gray=default_loader_gray):
+        imgs = []
+        with open(conf.train_list, 'r') as f:
+            lines = [x.strip() for x in f.readlines()]
+            for line in lines:
+                imgs.append((line.split()[0], int(line.split()[1])))      
+        self.imgs = imgs
+        self.transform = conf.train.transform
+        self.target_transform = target_transform
+        self.loader_rgb = loader_rgb
+        self.loader_gray = loader_gray
+        self.root = conf.data_folder
+        self.input_size = conf.model.input_size
+        self.random_offset = conf.model.random_offset
+
+    def __getitem__(self, index):
+        fn1, label = self.imgs[index]
+        img1 = self.loader_rgb(os.path.join(self.root,fn1))
+
+
+        offset_x = random.randint(0, self.random_offset[0])
+        offset_y = random.randint(0, self.random_offset[1])
+        img1 = img1.crop((offset_x, offset_y, offset_x + self.input_size[0], offset_y + self.input_size[1]))
+
+        # random horizantal flip
+        if random.random() > 0.5:
+            img1 = img1.transpose(Image.FLIP_LEFT_RIGHT)
+
+        if self.transform is not None:
+            img1 = self.transform(img1)
+        if self.target_transform is not None:
+            label = self.target_transform(label)
+        return [img1], label
+
+    def __len__(self):
+        return len(self.imgs)
+
+
+class MyDataset_huoti_test_rgb(Dataset):
+    def __init__(self, conf, loader_rgb=default_loader_rgb, loader_gray=default_loader_gray):
+        imgs = []
+        self.root = conf.data_folder
+        with open(conf.test_list, 'r') as f:
+            lines = [x.strip() for x in f.readlines()]
+            for line in lines:
+                all_images = os.listdir(os.path.join(self.root, line.split()[0], 'profile'))
+                for val in all_images:
+                    # imgs.append((os.path.join(line.split()[0], 'profile', val), int(line.split()[1])))
+                    imgs.append(os.path.join(line, 'profile', val))
+
+        self.imgs = imgs
+        self.transform = conf.test.transform
+        self.loader_rgb = loader_rgb
+        self.loader_gray = loader_gray
+        
+
+    def __getitem__(self, index):
+        fn1= self.imgs[index]
+        img11 = self.loader_rgb(os.path.join(self.root,fn1))
+
+
+        if self.transform is not None:
+            img11 = self.transform(img11)
+
+        return [img11], fn1
 
     def __len__(self):
         return len(self.imgs)
