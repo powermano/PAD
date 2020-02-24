@@ -1,4 +1,4 @@
-from data_pipe import get_train_loader,  get_train_loader_rgb, get_test_loader, get_test_loader_rgb
+from data_pipe import get_train_loader,  get_train_loader_rgb, get_test_loader, get_test_loader_rgb, get_train_loader_rgb_crop
 import torch
 from torch import optim
 # from matplotlib import pyplot as plt
@@ -6,7 +6,7 @@ from torch import optim
 from utils import AverageMeter, make_folder_if_not_exist
 import os
 import pprint
-from resnet import resnet18, officali_resnet18
+from resnet import resnet18, officali_resnet18, resnet18_concat
 import torch.nn.functional as F
 import numpy as np
 from triplet_loss import triplet_semihard_loss
@@ -21,18 +21,24 @@ class face_learner(object):
     def __init__(self, conf, inference=False):
         pprint.pprint(conf)
 
-        if not conf.use_officical_resnet18:
-            self.model = resnet18(conf.model.use_senet, conf.model.embedding_size, conf.model.drop_out, conf.model.se_reduction, conf.use_triplet)
-            # self.model = torch.nn.DataParallel(self.model).cuda()
+        if conf.use_officical_resnet18:
+            self.model = officali_resnet18()
+            self.model = self.model.to(gpu)
+        elif conf.use_concat:
+            self.model = resnet18_concat(conf.model.use_senet, conf.model.embedding_size, conf.model.drop_out, conf.model.se_reduction, conf.use_triplet, conf.feature_c, conf.multi_output, conf.add)
             self.model = self.model.to(gpu)
         else:
-            self.model = officali_resnet18()
+            self.model = resnet18(conf.model.use_senet, conf.model.embedding_size, conf.model.drop_out, conf.model.se_reduction, conf.use_triplet)
+            # self.model = torch.nn.DataParallel(self.model).cuda()
             self.model = self.model.to(gpu)
 
         if not inference:
             if conf.rgb:
                 print('We only use rgb images')
-                self.loader = get_train_loader_rgb(conf)
+                if conf.crop:
+                    self.loader = get_train_loader_rgb_crop(conf)
+                else:
+                    self.loader = get_train_loader_rgb(conf)
             else:
                 self.loader = get_train_loader(conf)
                            

@@ -99,9 +99,8 @@ def select_thresh(config, id_dict, labels):
 
 if __name__ == '__main__':
     config = dict()
-    config['thresh'] = 0.94
-    config['mean'] = True
-
+    config['thresh'] = 0.4
+    config['mean'] = False
     in_file = sys.argv[1]
     save_file = sys.argv[2]
     eval_type = sys.argv[3]

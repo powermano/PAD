@@ -21,6 +21,7 @@ def process_file(in_file, label_file):
     for line in lines:
         data = line.strip().split(' ')
         if len(data) != 2:
+            print('wrong')
             continue
         img_path = data[0]
         # label = float(data[-3])
@@ -30,6 +31,7 @@ def process_file(in_file, label_file):
             label = label_dict[track_id]
         except:
             print(track_id)
+            print(img_path)
             print(label_dict['dev/003000'])
 
         if label == 1.0:
@@ -272,8 +274,8 @@ def evaluate_single_thresh(config, live_dict, spoof_dict, thresh):
     evaluate(config, live_dict, spoof_dict)
 
 def evaluate_multi_window_thresh(config, live_dict, spoof_dict):
-    thresh_list = np.arange(0.01, 1, 0.005)
-    window_thresh_list = np.arange(0.001, 0.2, 0.0005)
+    thresh_list = np.arange(0.01, 1, 0.05)
+    window_thresh_list = np.arange(0.001, 1, 0.0005)
     window_thresh_result = 0
     thresh_result = 0
     min_acer = 200
@@ -344,15 +346,15 @@ if __name__ == '__main__':
 
     # evaluate muilti_frames
     elif eval_type == '2':
-        config['vote_thresh'] = 0.001
+        config['vote_thresh'] = 0.11827957
         evaluate_multi_thresh(config, live_dict, spoof_dict)
         get_TRR_by_TAR()
 
     # evaluate single thresh 
     elif eval_type == '3':
         config['ignore'] = '1'
-        config['vote_thresh'] = 0.001
-        evaluate_single_thresh(config, live_dict, spoof_dict, 0.955)
+        config['vote_thresh'] = 0.13846154
+        evaluate_single_thresh(config, live_dict, spoof_dict, 0.91)
 
     #  select best thresh and window thresh
     elif eval_type == '4':
