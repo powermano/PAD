@@ -20,9 +20,7 @@ def process_file(in_file, label_file):
     spoof_dict = dict()
     for line in lines:
         data = line.strip().split(' ')
-        if len(data) != 2:
-            print('wrong')
-            continue
+        assert len(data) >= 2, 'wrong input'
         img_path = data[0]
         # label = float(data[-3])
         liveness = float(data[-1])
@@ -291,6 +289,49 @@ def evaluate_multi_window_thresh(config, live_dict, spoof_dict):
                 thresh_result = thresh
                 min_apcer, min_bpcer, min_tp, min_tn, min_fp, min_fn = apcer, bpcer, tp, tn, fp, fn
     return min_acer, window_thresh_result, thresh_result, min_apcer, min_bpcer, min_tp, min_tn, min_fp, min_fn
+
+
+def evaluate_mean(config, live_dict, spoof_dict):
+    tp = 0.0
+    fp = 0.0
+    tn = 0.0
+    fn = 0.0
+
+    for k, v in live_dict.items():
+        prob = np.array(v).mean()
+        if prob > config['vote_thresh']:
+            pred = 1.0
+        else:
+            pred = 0.0
+        #pred = window_vote(config, v)
+        # pred = smooth(config, v)
+        if pred == 1.0:
+            tp += 1.0
+        else:
+            fn += 1.0
+
+    for k, v in spoof_dict.items():
+        prob = np.array(v).mean()
+        if prob > config['vote_thresh']:
+            pred = 1.0
+        else:
+            pred = 0.0
+        #pred = window_vote(config, v)
+        # pred = smooth(config, v)
+        if pred == 0.0:
+            tn += 1.0
+        else:
+            fp += 1.0
+
+    TAR = float(tp) / float(tp + fn + 1e-9)
+    TRR = float(tn) / float(tn + fp + 1e-9)
+    APCER = float(fp) / float(tn + fp + 1e-9)
+    BPCER = float(fn) / float(tp + fn + 1e-9)
+    ACER = (APCER + BPCER) / 2 
+    precision = float(tp + tn) / float(tp + tn + fp + fn + 1e-9)
+    logging.info('Thresh\tAPCER\tBPCER\tACER\tTP\tTN\tFP\tFN')
+    
+    logging.info('{:.3f}\t{:.2f}%\t{:.2f}%\t{:.2f}%\t{:.2f}\t{:.2f}\t{:.2f}\t{:.2f}'.format(0, APCER * 100, BPCER * 100, ACER * 100, tp, tn, fp, fn))
                 
     
 
@@ -340,21 +381,21 @@ if __name__ == '__main__':
     live_dict, spoof_dict = process_file(in_file, label_file)
 
     # evaluate single_frames
-    if eval_type == '1':
+    if eval_type == '1': 
         live_dict, spoof_dict = process_file_single(in_file, label_file)     
         evaluate_multi_thresh_for_single_frame(config, live_dict, spoof_dict)
 
     # evaluate muilti_frames
     elif eval_type == '2':
-        config['vote_thresh'] = 0.11827957
+        config['vote_thresh'] = 0.01075269
         evaluate_multi_thresh(config, live_dict, spoof_dict)
         get_TRR_by_TAR()
 
     # evaluate single thresh 
     elif eval_type == '3':
         config['ignore'] = '1'
-        config['vote_thresh'] = 0.13846154
-        evaluate_single_thresh(config, live_dict, spoof_dict, 0.91)
+        config['vote_thresh'] = 0.01075269
+        evaluate_single_thresh(config, live_dict, spoof_dict, 0.65)
 
     #  select best thresh and window thresh
     elif eval_type == '4':
@@ -381,6 +422,10 @@ if __name__ == '__main__':
                 max_precision_epoch = test_file
         print('the max precision is %.6f; the coresponding thresh %.6f' %(max_precision, max_precision_thresh))
         print('the max precision coresponding epoch is %s' %(max_precision_epoch))
+
+    elif eval_type == '6':
+        config['vote_thresh'] = 0.053763440860215055
+        evaluate_mean(config, live_dict, spoof_dict)
 
 
     else:

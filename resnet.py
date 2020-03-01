@@ -57,12 +57,16 @@ class SELayer(nn.Module):
 
 
 class ResNet18(nn.Module):
-  def __init__(self, use_se, embedding_size, block, planes, layers, drop_out, se_reduction=16, use_triplet=False):
+  def __init__(self, use_se, embedding_size, block, planes, layers, drop_out, se_reduction=16, use_triplet=False, use_rgb=True):
     self.use_se = use_se
     self.inplanes = planes[0]
     super(ResNet18, self).__init__()
-    self.conv1 = nn.Conv2d(3, planes[0], kernel_size=7, stride=2, padding=3,
-                           bias=False)
+    if use_rgb:
+      self.conv1 = nn.Conv2d(3, planes[0], kernel_size=7, stride=2, padding=3,
+                            bias=False)
+    else:
+      self.conv1 = nn.Conv2d(5, planes[0], kernel_size=7, stride=2, padding=3,
+                            bias=False)
     self.bn1 = nn.BatchNorm2d(planes[0])
     self.relu = nn.PReLU()
     self.use_triplet = use_triplet
@@ -135,14 +139,14 @@ class ResNet(nn.Module):
         self.bn1 = nn.BatchNorm2d(64)
         self.relu = nn.ReLU(inplace=True)
         self.maxpool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
-        self.layer1 = self._make_layer(block, 64, layers[0])
-        self.layer2 = self._make_layer(block, 128, layers[1], stride=2)
-        self.layer3 = self._make_layer(block, 256, layers[2], stride=2)
+        self.layer1 = self._make_layer(block, 32, layers[0])
+        self.layer2 = self._make_layer(block, 64, layers[1], stride=2)
+        self.layer3 = self._make_layer(block, 128, layers[2], stride=2)
         self.layer4 = self._make_layer(block, 512, layers[3], stride=2)
        # self.avgpool = nn.AvgPool2d(7, stride=1)
         self.avgpool = nn.AdaptiveAvgPool2d(1)
-        self.fc1 = nn.Linear(512 * block.expansion, 128)
-        self.fc2 = nn.Linear(128, num_classes)
+        self.fc1 = nn.Linear(512 * block.expansion, 512)
+        self.fc2 = nn.Linear(512, num_classes)
 
         for m in self.modules():
             if isinstance(m, nn.Conv2d):
@@ -315,8 +319,8 @@ def officali_resnet18(**kwargs):
   model = ResNet(BasicBlock, [2, 2, 2, 2], **kwargs)
   return model
 
-def resnet18(use_se=True, embedding_size=1024, drop_out = 0.7, se_reduction = 16, use_triplet = False):
-  model = ResNet18(use_se, embedding_size, BasicBlock,[64,128,256],[1,1,1], drop_out, se_reduction, use_triplet)
+def resnet18(use_se=True, embedding_size=1024, drop_out = 0.7, se_reduction = 16, use_triplet = False, use_rgb = True):
+  model = ResNet18(use_se, embedding_size, BasicBlock,[64,128,256],[1,1,1], drop_out, se_reduction, use_triplet, use_rgb)
   return model
 
 def resnet18_concat(use_se=True, embedding_size=1024, drop_out = 0.7, se_reduction = 16, use_triplet = False, feature_c=256, multi_output=True, add=True):

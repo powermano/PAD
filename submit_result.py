@@ -13,8 +13,7 @@ def process_file(in_file):
     id_dict = OrderedDict()
     for line in lines:
         data = line.strip().split(' ')
-        if len(data) != 2:
-            continue
+        assert len(data) >= 2, 'wrong input'
         img_path = data[0]
         # label = float(data[-3])
         liveness = float(data[-1])
@@ -99,7 +98,7 @@ def select_thresh(config, id_dict, labels):
 
 if __name__ == '__main__':
     config = dict()
-    config['thresh'] = 0.4
+    config['thresh'] = 0.5
     config['mean'] = False
     in_file = sys.argv[1]
     save_file = sys.argv[2]
