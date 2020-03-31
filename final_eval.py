@@ -7,40 +7,47 @@ logging.basicConfig(level=logging.INFO,
 
 eval_list = []
 
-def process_file(in_file, label_file):
+def process_file(in_file, thresh):
     with open(in_file, 'r') as f:
         lines = f.readlines()
-    label_dict = {}
-    with open(label_file, 'r') as f:
-        label_inf = f.readlines()
-        for val in label_inf:
-            label_dict[val.split()[0]] = float(val.split()[-1])
-
+    tp = 0.0
+    fp = 0.0
+    tn = 0.0
+    fn = 0.0
     live_dict = dict()
     spoof_dict = dict()
     for line in lines:
         data = line.strip().split(' ')
-        if len(data) != 2:
+        if len(data) < 2:
             continue
         img_path = data[0]
-        # label = float(data[-3])
+        label = float(data[-2])
         liveness = float(data[-1])
-        track_id = '/'.join(img_path.split('/')[:-2])
-        try:
-            label = label_dict[track_id]
-        except:
-            print(track_id)
-            print(label_dict['dev/003000'])
 
         if label == 1.0:
-            if track_id not in live_dict:
-                live_dict[track_id] = []
-            live_dict[track_id].append(liveness)
+            if liveness > thresh:
+                tp += 1
+            else:
+                fn += 1
+            
         elif label == 0.0:
-            if track_id not in spoof_dict:
-                spoof_dict[track_id] = []
-            spoof_dict[track_id].append(liveness)
+            if liveness > thresh:
+                fp += 1
+            else:
+                tn += 1
         else:
             raise ValueError
+    APCER = float(fp) / float(tn + fp + 1e-9)
+    BPCER = float(fn) / float(tp + fn + 1e-9)
+    ACER = (APCER + BPCER) / 2 
 
-    return live_dict, spoof_dict
+    return ACER
+
+
+if __name__ == '__main__':
+    input_file = sys.argv[1]
+    thresh = sys.argv[2]
+    acer = process_file(input_file, float(thresh))
+    print(acer)
+
+

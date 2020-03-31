@@ -18,6 +18,27 @@ def process_file(in_file):
         # label = float(data[-3])
         liveness = float(data[-1])
         track_id = '/'.join(img_path.split('/')[:-2])
+       # track_id = img_path
+        if track_id not in id_dict:
+            id_dict[track_id] = []
+        id_dict[track_id].append(liveness)
+
+
+    return id_dict
+
+
+def process_file_video(in_file):
+    with open(in_file, 'r') as f:
+        lines = f.readlines()
+    id_dict = OrderedDict()
+    for line in lines:
+        data = line.strip().split(' ')
+        assert len(data) >= 2, 'wrong input'
+        img_path = data[0]
+        # label = float(data[-3])
+        liveness = float(data[-1])
+       # track_id = '/'.join(img_path.split('/')[:-2])
+        track_id = img_path
         if track_id not in id_dict:
             id_dict[track_id] = []
         id_dict[track_id].append(liveness)
@@ -41,10 +62,13 @@ def save_result(config, id_dict, save_file):
     with open(save_file, 'w') as f:
         for k, v in id_dict.items():
             if config['mean']:
-                prob = np.array(v).mean()
+                if config['new']:
+                    prob = np.array(v).mean() * np.array(v).var()
+                else:
+                    prob = np.array(v).mean()
             else:
                 prob = window_vote(config, v)
-            write_str = k + ' %.5f' % (prob,) + '\n'
+            write_str = k + ' %.12f' % (prob,) + '\n'
             f.write(write_str)
 
 def evaluate_xjc(scores, labels):
@@ -85,21 +109,32 @@ def evaluate_xjc(scores, labels):
 def select_thresh(config, id_dict, labels):
     results = []
     for k, v in id_dict.items():
-        if config['mean']:
-            prob = np.array(v).mean()
+        if config['video']:
+           # print('1')
+            prob = v
+            results.append(prob)
+        elif config['mean']:
+            if config['new']:
+                prob = np.array(v).mean() * np.array(v).var()
+            else:
+                prob = np.array(v).mean()
             results.append(prob)
         else:
             prob = window_vote(config, v)
             results.append(prob)
+    # print(np.array(labels).shape)
+    print(np.array(results).shape)
     assert len(results) == len(labels), 'wrong, results and label must have same shape'
-    bestAcc, bestThresh, APCER, NPCER, ACER, TPR_01, Thresh_at01 = evaluate_xjc(np.array(results), np.array(labels))
+    bestAcc, bestThresh, APCER, NPCER, ACER, TPR_01, Thresh_at01 = evaluate_xjc(np.array(results).ravel(), np.array(labels))
     return bestThresh
 
 
 if __name__ == '__main__':
     config = dict()
-    config['thresh'] = 0.5
+    config['thresh'] = 0.99999
     config['mean'] = False
+    config['new'] = False
+    config['video'] = False
     in_file = sys.argv[1]
     save_file = sys.argv[2]
     eval_type = sys.argv[3]
@@ -113,6 +148,18 @@ if __name__ == '__main__':
             lines = [x.strip() for x in f.readlines()]
             for line in lines:
                 labels.append(float(line.split()[-1]))
+        bestThresh= select_thresh(config, id_dict, labels)
+        print(bestThresh)
+    elif eval_type == '3':
+        config['video'] = True
+        id_dict = process_file_video(in_file)
+        print(len(id_dict))
+        labels = []
+        with open(save_file, 'r') as f:
+            lines = [x.strip() for x in f.readlines()]
+            for line in lines:
+                labels.append(float(line.split()[-2]))
+        print(len(labels), labels[50])
         bestThresh= select_thresh(config, id_dict, labels)
         print(bestThresh)
     else:

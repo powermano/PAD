@@ -298,7 +298,10 @@ def evaluate_mean(config, live_dict, spoof_dict):
     fn = 0.0
 
     for k, v in live_dict.items():
-        prob = np.array(v).mean()
+        if config['new']:
+            prob = np.array(v).mean() * np.array(v).var()
+        else:
+            prob = np.array(v).mean()
         if prob > config['vote_thresh']:
             pred = 1.0
         else:
@@ -311,7 +314,10 @@ def evaluate_mean(config, live_dict, spoof_dict):
             fn += 1.0
 
     for k, v in spoof_dict.items():
-        prob = np.array(v).mean()
+        if config['new']:
+            prob = np.array(v).mean() * np.array(v).var()
+        else:
+            prob = np.array(v).mean()
         if prob > config['vote_thresh']:
             pred = 1.0
         else:
@@ -395,7 +401,7 @@ if __name__ == '__main__':
     elif eval_type == '3':
         config['ignore'] = '1'
         config['vote_thresh'] = 0.01075269
-        evaluate_single_thresh(config, live_dict, spoof_dict, 0.65)
+        evaluate_single_thresh(config, live_dict, spoof_dict, 0.95)
 
     #  select best thresh and window thresh
     elif eval_type == '4':
@@ -424,7 +430,8 @@ if __name__ == '__main__':
         print('the max precision coresponding epoch is %s' %(max_precision_epoch))
 
     elif eval_type == '6':
-        config['vote_thresh'] = 0.053763440860215055
+        config['vote_thresh'] = 0.00279075
+        config['new'] = True
         evaluate_mean(config, live_dict, spoof_dict)
 
 

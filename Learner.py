@@ -22,13 +22,13 @@ class face_learner(object):
         pprint.pprint(conf)
 
         if conf.use_officical_resnet18:
-            self.model = officali_resnet18()
+            self.model = officali_resnet18(use_triplet=conf.use_triplet)
             self.model = self.model.to(gpu)
         elif conf.use_concat:
             self.model = resnet18_concat(conf.model.use_senet, conf.model.embedding_size, conf.model.drop_out, conf.model.se_reduction, conf.use_triplet, conf.feature_c, conf.multi_output, conf.add)
             self.model = self.model.to(gpu)
         else:
-            self.model = resnet18(conf.model.use_senet, conf.model.embedding_size, conf.model.drop_out, conf.model.se_reduction, conf.use_triplet, conf.rgb)
+            self.model = resnet18(conf.model.use_senet, conf.model.embedding_size, conf.model.drop_out, conf.model.se_reduction, conf.use_triplet, conf.rgb, conf.depth)
             # self.model = torch.nn.DataParallel(self.model).cuda()
             self.model = self.model.to(gpu)
 
@@ -190,9 +190,9 @@ class face_learner(object):
                                 fw.flush()                         
                     else:
                         input1, input2 = self.get_model_input_data_for_test(imgs)
-                        output1 = F.softmax(self.model(input1))
+                        output1 = F.softmax(self.model(input1), dim=1)
                         output1 = output1[:,1]
-                        output2 = F.softmax(self.model(input2))
+                        output2 = F.softmax(self.model(input2), dim=1)
                         output2 = output2[:,1]
                         output = (output1 + output2 ) / 2.0
                         for k in range(len(names[0])):

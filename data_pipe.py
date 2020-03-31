@@ -163,12 +163,25 @@ class MyDataset_huoti_test(Dataset):
 class MyDataset_huoti_rgb(Dataset):
     def __init__(self, conf, target_transform=None, loader_rgb=default_loader_rgb, loader_gray=default_loader_gray):
         imgs = []
-        with open(conf.train_list, 'r') as f:
-            lines = [x.strip() for x in f.readlines()]
-            for line in lines:
-                imgs.append((line.split()[0], int(line.split()[1])))      
+        self.conf = conf
+        if conf.depth:
+            with open(conf.train_list, 'r') as f:
+                lines = [x.strip() for x in f.readlines()]
+                for line in lines:
+                    imgs.append((line.split()[0].replace('profile', 'depth'), int(line.split()[1])))
+        elif conf.ir:
+            with open(conf.train_list, 'r') as f:
+                lines = [x.strip() for x in f.readlines()]
+                for line in lines:
+                    imgs.append((line.split()[0].replace('profile', 'ir'), int(line.split()[1])))
+        else:
+            with open(conf.train_list, 'r') as f:
+                lines = [x.strip() for x in f.readlines()]
+                for line in lines:
+                    imgs.append((line.split()[0], int(line.split()[1])))      
         self.imgs = imgs
         self.transform = conf.train.transform
+        self.transform1 = conf.train.transform1
         self.target_transform = target_transform
         self.loader_rgb = loader_rgb
         self.loader_gray = loader_gray
@@ -178,7 +191,10 @@ class MyDataset_huoti_rgb(Dataset):
 
     def __getitem__(self, index):
         fn1, label = self.imgs[index]
-        img1 = self.loader_rgb(os.path.join(self.root,fn1))
+        if self.conf.depth:
+            img1 = self.loader_gray(os.path.join(self.root, fn1))
+        else:
+            img1 = self.loader_rgb(os.path.join(self.root, fn1))
 
 
         # offset_x = random.randint(0, self.random_offset[0])
@@ -190,7 +206,10 @@ class MyDataset_huoti_rgb(Dataset):
             img1 = img1.transpose(Image.FLIP_LEFT_RIGHT)
 
         if self.transform is not None:
-            img1 = self.transform(img1)
+            if self.conf.depth:
+                img1 = self.transform1(img1)
+            else:
+                img1 = self.transform(img1)
         if self.target_transform is not None:
             label = self.target_transform(label)
         return [img1], label
@@ -202,28 +221,54 @@ class MyDataset_huoti_rgb(Dataset):
 class MyDataset_huoti_test_rgb(Dataset):
     def __init__(self, conf, loader_rgb=default_loader_rgb, loader_gray=default_loader_gray):
         imgs = []
+        self.conf = conf
         self.root = conf.data_folder
-        with open(conf.test_list, 'r') as f:
-            lines = [x.strip() for x in f.readlines()]
-            for line in lines:
-                all_images = os.listdir(os.path.join(self.root, line.split()[0], 'profile'))
-                for val in all_images:
-                    # imgs.append((os.path.join(line.split()[0], 'profile', val), int(line.split()[1])))
-                    imgs.append(os.path.join(line, 'profile', val))
+        if conf.depth:
+            with open(conf.test_list, 'r') as f:
+                lines = [x.strip() for x in f.readlines()]
+                for line in lines:
+                    all_images = os.listdir(os.path.join(self.root, line.split()[0], 'depth'))
+                    for val in all_images:
+                        # imgs.append((os.path.join(line.split()[0], 'profile', val), int(line.split()[1])))
+                        imgs.append(os.path.join(line, 'depth', val))
+        elif conf.ir:
+            with open(conf.test_list, 'r') as f:
+                lines = [x.strip() for x in f.readlines()]
+                for line in lines:
+                    all_images = os.listdir(os.path.join(self.root, line.split()[0], 'ir'))
+                    for val in all_images:
+                        # imgs.append((os.path.join(line.split()[0], 'profile', val), int(line.split()[1])))
+                        imgs.append(os.path.join(line, 'ir', val))
+        else:
+            with open(conf.test_list, 'r') as f:
+                lines = [x.strip() for x in f.readlines()]
+                for line in lines:
+                    all_images = os.listdir(os.path.join(self.root, line.split()[0], 'profile'))
+                    for val in all_images:
+                        # imgs.append((os.path.join(line.split()[0], 'profile', val), int(line.split()[1])))
+                        imgs.append(os.path.join(line, 'profile', val))
+        
 
         self.imgs = imgs
         self.transform = conf.test.transform
+        self.transform1 = conf.test.transform1
         self.loader_rgb = loader_rgb
         self.loader_gray = loader_gray
         
 
     def __getitem__(self, index):
         fn1= self.imgs[index]
-        img11 = self.loader_rgb(os.path.join(self.root,fn1))
+        if self.conf.depth:
+            img11 = self.loader_gray(os.path.join(self.root,fn1))
+        else:
+            img11 = self.loader_rgb(os.path.join(self.root,fn1))
 
 
         if self.transform is not None:
-            img11 = self.transform(img11)
+            if self.conf.depth:
+                img11 = self.transform1(img11)
+            else:   
+                img11 = self.transform(img11)
 
         return [img11], fn1
 
@@ -236,7 +281,8 @@ def process_method_5(data_dict, expand_ratio=1.0, f='train', extra_expand_ratio 
     if img is None:
         assert False, 'image `{}` is empty.'.format(data_dict['img_path'])
     rects = copy.deepcopy(data_dict['rects'])
-    if rects == [-1.0] * 4:
+   # print(img.shape)
+    if rects == [-1.0] * 4 or rects[0] < 0 or rects[1] < 0 or rects[2] < 0 or rects[3] < 0:
         # print('not need to crop')
         # print(data_dict['img_path'])
         img_final = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
@@ -268,8 +314,13 @@ def process_method_5(data_dict, expand_ratio=1.0, f='train', extra_expand_ratio 
            # print('test')
             bbox1 = [int(x) for x in bbox1]
             img_final = img[bbox1[1]:bbox1[3], bbox1[0]:bbox1[2]]
-            img_final = cv2.cvtColor(img_final, cv2.COLOR_BGR2RGB)
-            img_final = Image.fromarray(img_final.astype('uint8'))
+           # print(img_final.shape)
+            try:
+                img_final = cv2.cvtColor(img_final, cv2.COLOR_BGR2RGB)
+                img_final = Image.fromarray(img_final.astype('uint8'))
+            except:
+                print(bbox1)
+                print(data_dict['img_path'])
             return img_final
         
 
@@ -292,6 +343,7 @@ def process_method_5(data_dict, expand_ratio=1.0, f='train', extra_expand_ratio 
 class MyDataset_huoti_rgb_crop(Dataset):
     def __init__(self, conf, target_transform=None, loader_rgb=default_loader_rgb, loader_gray=default_loader_gray):
         self.root = conf.data_folder
+        self.conf = conf
         imgs = []
         with open(conf.train_list, 'r') as f:
             lines = [x.strip() for x in f.readlines()]
@@ -309,6 +361,7 @@ class MyDataset_huoti_rgb_crop(Dataset):
                 imgs.append((data_dict, label))      
         self.imgs = imgs
         self.transform = conf.train.transform
+        self.transform1 = conf.train.transform1
         self.target_transform = target_transform
         self.loader_rgb = loader_rgb
         self.loader_gray = loader_gray
@@ -332,7 +385,10 @@ class MyDataset_huoti_rgb_crop(Dataset):
           #  img1 = cv2.flip(img1, 1)
 
         if self.transform is not None:
-            img1 = self.transform(img1)
+            if self.conf.depth:
+                img1 = self.transform1(img1)
+            else:
+                img1 = self.transform(img1)
         if self.target_transform is not None:
             label = self.target_transform(label)
         return [img1], label
@@ -344,6 +400,7 @@ class MyDataset_huoti_rgb_crop(Dataset):
 class MyDataset_huoti_rgb_test_crop(Dataset):
     def __init__(self, conf, target_transform=None, loader_rgb=default_loader_rgb, loader_gray=default_loader_gray):
         self.root = conf.data_folder
+        self.conf = conf
         imgs = []
         with open(conf.test_list, 'r') as f:
             lines = [x.strip() for x in f.readlines()]
@@ -361,6 +418,7 @@ class MyDataset_huoti_rgb_test_crop(Dataset):
                 imgs.append((data_dict, label))      
         self.imgs = imgs
         self.transform = conf.test.transform
+        self.transform1 = conf.test.transform1
         self.loader_rgb = loader_rgb
         self.loader_gray = loader_gray
 
@@ -371,7 +429,10 @@ class MyDataset_huoti_rgb_test_crop(Dataset):
         img_path = fn1['img_path']
 
         if self.transform is not None:
-            img1 = self.transform(img1)
+            if self.conf.depth:
+                img1 = self.transform1(img1)
+            else:
+                img1 = self.transform(img1)
         
         return [img1], img_path
 
